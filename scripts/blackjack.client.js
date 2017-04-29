@@ -22,50 +22,65 @@ var stand = function () {
     socket.emit('stand');
 };
 
-var getSuitHtml = function (suit) {
-    var image = 'club.png';
+var getSuit = function (suit) {
     if (suit === 'H') {
-        image = 'heart.png';
+        return 'hearts'
     } else if (suit === 'S') {
-        image = 'spade.png';
+        return 'spades';
     } else if (suit === 'D') {
-        image = 'diamond.png';
+        return 'diamonds'
     }
-    return "<img class='card' src='img/" + image + "'/>";
+
+    return 'clubs';
 };
 
-var getRankHtml = function (rank) {
+var getRank = function (rank) {
     if (rank === 1) {
-        return 'A';
+        return 'ace';
     } else if (rank === 11) {
-        return 'J';
+        return 'jack';
     } else if (rank === 12) {
-        return 'Q';
+        return 'queen';
     } else if (rank === 13) {
-        return 'K';
+        return 'king';
     }
     return rank;
 };
 
-var getCardsHtml = function (cards) {
-    var html = '';
-    for (var i = 0; i < cards.length; i++) {
-        var card = cards[i];
-        html += getRankHtml(card.rank);
-        html += getSuitHtml(card.suit);
-    }
-    return html;
+var getCardImg = function (card) {
+    var image = new Image();
+    image.src = '../img/' + getRank(card.rank) + "_of_" + getSuit(card.suit) + '.svg?d=' + Date.now();
+    return image;
 };
 
 var updatePlayer = function (player) {
-    var html = getCardsHtml(player.cards);
-    $('#playerCards').html(html);
+    loadCardImages($('#playerCards')[0], player.cards, drawCards);
     $('#playerScore').text(player.score);
 };
 
+var loadCardImages = function (player, cards, callback) {
+    var loaded = 0;
+    var images = [];
+    for (var i = 0; i < cards.length; i++) {
+        images[i] = getCardImg(cards[i]);
+        images[i].onload = function () {
+            if (++loaded === cards.length && callback) {
+                callback(player, images);
+            }
+        };
+    }
+};
+
+var drawCards = function (player, images) {
+    var ctx = player.getContext('2d');
+    ctx.clearRect(0, 0, 500, 150);
+    for (var i = 0; i < images.length; i++) {
+        ctx.drawImage(images[i], i * 20, 0, 100, 150);
+    }
+};
+
 var updateDealer = function (dealer) {
-    var html = getCardsHtml(dealer.cards);
-    $('#dealerCards').html(html);
+    loadCardImages($('#dealerCards')[0], dealer.cards, drawCards);
     $('#dealerScore').text(dealer.score);
 };
 
@@ -125,7 +140,7 @@ var standResult = function (game) {
 };
 
 var registerClientActions = function () {
-    
+
     $('#deal').click(function () {
         deal();
     });
