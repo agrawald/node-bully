@@ -4,25 +4,28 @@
     <head>
         <meta charset="utf-8" />
         <title>Blackjack</title>
-        <link rel="stylesheet" type="text/css" href="css/blackjack.css"></link>
+        <link rel="stylesheet" type="text/css" href="css/blackjack.css"/>
         <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
-        <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.js"></script>
         <script type="text/javascript" src="scripts/blackjack.client.js"></script>
     </head>
     <body>
         <h1>Blackjack</h1>
-        <div id="dealerCards">
+        <div id="dealer">
+            DEALER CARDS <div id="dealerCards"></div>
+            DEALER SCORE <div id="dealerScore"></div>
         </div>
-        <div id="dealerScore">
+        <div id="player">
+            PLAYER CARDS <div id="playerCards"></div>
+            PLAYER SCORE <div id="playerScore"></div>
         </div>
-        <div id="playerCards">
+        <div>
+            RESULT <div id="result"></div>
         </div>
-        <div id="playerScore">
+        <div id="actions">
+            <button id="deal">Deal</button>
+            <button id="hit">Hit</button>
+            <button id="stand">Stand</button>
         </div>
-        <div id="result">
-        </div>
-        <button id="deal">Deal</button>
-        <button id="hit">Hit</button>
-        <button id="stand">Stand</button>
     </body>
 </html>

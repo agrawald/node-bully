@@ -1,19 +1,28 @@
+var socket = io();
 
-var App = {}
+socket.on('stand', function (game) {
+    standResult(game);
+});
+socket.on('deal', function (game) {
+    dealResult(game);
+});
+socket.on('hit', function (game) {
+    hitResult(game);
+});
 
-App.deal = function () {
-    App.socket.emit('deal');
-}
+var deal = function () {
+    socket.emit('deal');
+};
 
-App.hit = function () {
-    App.socket.emit('hit');
-}
+var hit = function () {
+    socket.emit('hit');
+};
 
-App.stand = function () {
-    App.socket.emit('stand');
-}
+var stand = function () {
+    socket.emit('stand');
+};
 
-App.getSuitHtml = function (suit) {
+var getSuitHtml = function (suit) {
     var image = 'club.png';
     if (suit === 'H') {
         image = 'heart.png';
@@ -23,9 +32,9 @@ App.getSuitHtml = function (suit) {
         image = 'diamond.png';
     }
     return "<img class='card' src='img/" + image + "'/>";
-}
+};
 
-App.getRankHtml = function (rank) {
+var getRankHtml = function (rank) {
     if (rank === 1) {
         return 'A';
     } else if (rank === 11) {
@@ -36,122 +45,105 @@ App.getRankHtml = function (rank) {
         return 'K';
     }
     return rank;
-}
+};
 
-App.getCardsHtml = function (cards) {
+var getCardsHtml = function (cards) {
     var html = '';
     for (var i = 0; i < cards.length; i++) {
         var card = cards[i];
-        html += App.getRankHtml(card.rank);
-        html += App.getSuitHtml(card.suit);
+        html += getRankHtml(card.rank);
+        html += getSuitHtml(card.suit);
     }
     return html;
-}
+};
 
-App.updatePlayer = function (player) {
-    var html = App.getCardsHtml(player.cards);
+var updatePlayer = function (player) {
+    var html = getCardsHtml(player.cards);
     $('#playerCards').html(html);
     $('#playerScore').text(player.score);
-}
+};
 
-App.updateDealer = function (dealer) {
-    var html = App.getCardsHtml(dealer.cards);
+var updateDealer = function (dealer) {
+    var html = getCardsHtml(dealer.cards);
     $('#dealerCards').html(html);
     $('#dealerScore').text(dealer.score);
-}
+};
 
-App.updateResult = function (result) {
+var updateResult = function (result) {
     var displayResult = result;
     if (result === 'None') {
         displayResult = '';
     }
     $('#result').text(displayResult);
-}
+};
 
-App.disableButton = function (id) {
+var disableButton = function (id) {
     $(id).attr('disabled', 'disabled');
-}
+};
 
-App.enableButton = function (id) {
+var enableButton = function (id) {
     $(id).removeAttr('disabled');
-}
+};
 
-App.disableDeal = function () {
-    App.disableButton('#deal');
-    App.enableButton('#hit');
-    App.enableButton('#stand');
-}
+var disableDeal = function () {
+    disableButton('#deal');
+    enableButton('#hit');
+    enableButton('#stand');
+};
 
-App.enableDeal = function () {
-    App.enableButton('#deal');
-    App.disableButton('#hit');
-    App.disableButton('#stand');
-}
+var enableDeal = function () {
+    enableButton('#deal');
+    disableButton('#hit');
+    disableButton('#stand');
+};
 
-App.enableDealIfGameFinished = function (result) {
+var enableDealIfGameFinished = function (result) {
     if (result !== 'None') {
-        App.enableDeal();
+        enableDeal();
     }
-}
+};
 
-App.dealResult = function (game) {
-    App.disableDeal();
-    App.updateDealer(game.dealer);
-    App.updatePlayer(game.player);
-    App.updateResult(game.result);
-}
+var dealResult = function (game) {
+    disableDeal();
+    updateDealer(game.dealer);
+    updatePlayer(game.player);
+    updateResult(game.result);
+};
 
-App.hitResult = function (game) {
-    App.updateDealer(game.dealer);
-    App.updatePlayer(game.player);
-    App.updateResult(game.result);
-    App.enableDealIfGameFinished(game.result);
-}
+var hitResult = function (game) {
+    updateDealer(game.dealer);
+    updatePlayer(game.player);
+    updateResult(game.result);
+    enableDealIfGameFinished(game.result);
+};
 
-App.standResult = function (game) {
-    App.updateDealer(game.dealer);
-    App.updatePlayer(game.player);
-    App.updateResult(game.result);
-    App.enableDealIfGameFinished(game.result);
-}
+var standResult = function (game) {
+    updateDealer(game.dealer);
+    updatePlayer(game.player);
+    updateResult(game.result);
+    enableDealIfGameFinished(game.result);
+};
 
-App.socket = {}
-
-App.registerClientActions = function () {
+var registerClientActions = function () {
     
     $('#deal').click(function () {
-        App.deal();
+        deal();
     });
 
     $('#hit').click(function () {
-        App.hit();
+        hit();
     });
 
     $('#stand').click(function () {
-        App.stand();
+        stand();
     });
-}
+};
 
-App.registerServerActions = function () {    
-    App.socket.on('stand', function (game) {
-        App.standResult(game);
-    });
-    App.socket.on('deal', function (game) {
-        App.dealResult(game);
-    });
-    App.socket.on('hit', function (game) {
-        App.hitResult(game);
-    });
-}
-
-App.init = function () {
-    var socket = io.connect('http://localhost:3000');
-    App.socket = socket;
-    App.registerClientActions();
-    App.registerServerActions();
-    App.enableDeal();
-}
+var init = function () {
+    registerClientActions();
+    enableDeal();
+};
 
 $(document).ready(function () {
-    App.init();
+    init();
 });
