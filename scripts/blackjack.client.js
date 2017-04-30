@@ -1,5 +1,5 @@
 var socket = io();
-
+var myId = -1;
 socket.on('stand', function (game) {
     standResult(game);
 });
@@ -8,6 +8,15 @@ socket.on('deal', function (game) {
 });
 socket.on('hit', function (game) {
     hitResult(game);
+});
+
+socket.on('id', function (data) {
+    myId = data.id;
+    playerRegistered(data.game);
+});
+
+socket.on('drop', function (game) {
+    dropPlayer(game);
 });
 
 var deal = function () {
@@ -53,22 +62,37 @@ var getCardImg = function (card) {
     return image;
 };
 
-var updatePlayer = function (player) {
-    loadCardImages($('#playerCards')[0], player.cards, drawCards);
-    $('#playerScore').text(player.score);
+var updatePlayers = function (players) {
+    for(var i=0; i<players.length; i++) {
+        var player = players[i];
+        if(player.role !== 'dealer') {
+            var playerTemplate = document.querySelector('template').content;
+            if(player.id === i) {
+                playerTemplate.querySelector('.panel-title').innerHTML = "You <span class='badge' id='playerScore'>"+player.score+"</span>";
+            } else {
+                playerTemplate.querySelector('.panel-title').innerHTML = player.name+" <span class='badge' id='playerScore'>"+player.score+"</span>";
+            }
+            var playerCards = playerTemplate.querySelector('#playerCards').content;
+            loadCardImages(playerCards, player.cards, drawCards);
+            $('#players').append(playerTemplate);
+        }
+    }
 };
 
 var loadCardImages = function (player, cards, callback) {
     var loaded = 0;
     var images = [];
-    for (var i = 0; i < cards.length; i++) {
-        images[i] = getCardImg(cards[i]);
-        images[i].onload = function () {
-            if (++loaded === cards.length && callback) {
-                callback(player, images);
-            }
-        };
+    if(cards && cards.length > 0) {
+        for (var i = 0; i < cards.length; i++) {
+            images[i] = getCardImg(cards[i]);
+            images[i].onload = function () {
+                if (++loaded === cards.length && callback) {
+                    callback(player, images);
+                }
+            };
+        }
     }
+
 };
 
 var drawCards = function (player, images) {
@@ -88,6 +112,8 @@ var updateResult = function (result) {
     var displayResult = result;
     if (result === 'None') {
         displayResult = '';
+    } else {
+        $('#resultModal').modal();
     }
     $('#result').text(displayResult);
 };
@@ -121,27 +147,44 @@ var enableDealIfGameFinished = function (result) {
 var dealResult = function (game) {
     disableDeal();
     updateDealer(game.dealer);
-    updatePlayer(game.player);
+    updatePlayers(game.players);
     updateResult(game.result);
 };
 
 var hitResult = function (game) {
     updateDealer(game.dealer);
-    updatePlayer(game.player);
+    updatePlayers(game.players);
     updateResult(game.result);
     enableDealIfGameFinished(game.result);
 };
 
 var standResult = function (game) {
     updateDealer(game.dealer);
-    updatePlayer(game.player);
+    updatePlayers(game.players);
     updateResult(game.result);
     enableDealIfGameFinished(game.result);
+};
+
+var playerRegistered = function (game) {
+    updateDealer(game.dealer);
+    updatePlayers(game.players);
+    updateResult(game.result);
+    enableDealIfGameFinished(game.result);
+};
+
+var dropPlayer = function (game) {
+    updateDealer(game.dealer);
+    updatePlayers(game.players);
+    updateResult(game.result);
 };
 
 var registerClientActions = function () {
 
     $('#deal').click(function () {
+        deal();
+    });
+
+    $('#restart').click(function () {
         deal();
     });
 

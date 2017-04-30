@@ -14,9 +14,19 @@ app.use('/scripts', express.static(__dirname + '/scripts'));
 app.use('/css', express.static(__dirname + '/css'));
 app.use('/img', express.static(__dirname + '/img'));
 
+var playerSockets = [];
+var playerCount = -1;
+
 io.on('connection', function (socket) {
     console.log('User connected');
-    socket.game = blackjack.newGame();
+    ++playerCount;
+    playerSockets[playerCount] = socket;
+    socket.id = playerCount;
+    if (!socket.game) {
+        socket.game = blackjack.newGame();
+    }
+
+    socket.game.newPlayer(playerCount);
 
     socket.on('deal', function (data) {
         deal(socket, data);
@@ -32,16 +42,34 @@ io.on('connection', function (socket) {
 
     socket.on('disconnect', function (socket) {
         console.log('User disconnected');
+        delete playerSockets[this.id];
+        var game = this.game;
+        game.removePlayer(this.id);
+        playerCount--;
+        notifyPlayers('drop');
+    });
+
+    socket.emit('id', {
+        id: playerCount,
+        game: socket.game.toJson()
     });
 });
 
 http.listen(3000);
 
+var notifyPlayers = function(event) {
+    if(playerSockets && playerSockets.length>0) {
+        for(var i=0; i<playerSockets.length; i++) {
+            playerSockets[i].emit(event, game.toJson());
+        }
+    }
+};
+
 var deal = function (socket, data) {
     console.log('deal');
     var game = socket.game;
     if (!game.isInProgress()) {
-        game.newGame();
+        game.start();
     }
     socket.emit('deal', game.toJson());
 };
