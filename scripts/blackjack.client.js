@@ -1,5 +1,6 @@
 var socket = io();
 var myId = -1;
+
 socket.on('stand', function (game) {
     standResult(game);
 });
@@ -12,11 +13,16 @@ socket.on('hit', function (game) {
 
 socket.on('id', function (data) {
     myId = data.id;
-    playerRegistered(data.game);
+    init();
+    updatePlayers(data.players);
 });
 
-socket.on('drop', function (game) {
-    dropPlayer(game);
+socket.on('drop', function (players) {
+    dropPlayer(players);
+});
+
+socket.on('newPlayer', function (players) {
+    newPlayer(players);
 });
 
 var deal = function () {
@@ -38,9 +44,11 @@ var getSuit = function (suit) {
         return 'spades';
     } else if (suit === 'D') {
         return 'diamonds'
+    } else if (suit === 'C') {
+        return 'clubs'
     }
 
-    return 'clubs';
+    return suit;
 };
 
 var getRank = function (rank) {
@@ -63,31 +71,44 @@ var getCardImg = function (card) {
 };
 
 var updatePlayers = function (players) {
-    for(var i=0; i<players.length; i++) {
-        var player = players[i];
-        if(player.role !== 'dealer') {
-            var playerTemplate = document.querySelector('template').content;
-            if(player.id === i) {
-                playerTemplate.querySelector('.panel-title').innerHTML = "You <span class='badge' id='playerScore'>"+player.score+"</span>";
+    if (players) {
+        removePlayers(players);
+        for (var i = 0; i < players.length; i++) {
+            var player = players[i];
+            $('#player' + i + 'Score').empty();
+            if (player.isDealer) {
+                $('#player' + i + 'Score').append(player.name + " (DEALER) <span class='badge'>" + player.score + "</span>");
+                $('#player' + i + 'deal').removeAttr('hidden');
             } else {
-                playerTemplate.querySelector('.panel-title').innerHTML = player.name+" <span class='badge' id='playerScore'>"+player.score+"</span>";
+                $('#player' + i + 'Score').append(player.name + " <span class='badge'>" + player.score + "</span>");
             }
-            var playerCards = playerTemplate.querySelector('#playerCards').content;
-            loadCardImages(playerCards, player.cards, drawCards);
-            $('#players').append(playerTemplate);
+            $('#player' + i + 'Cards').empty();
+            loadCardImages('player' + i + 'Cards', player.cards);
+            if (myId === i) {
+                $('#player' + i + 'Buttons').removeAttr('hidden');
+            }
+            $('#player' + i).removeAttr('hidden');
         }
     }
 };
 
-var loadCardImages = function (player, cards, callback) {
+var removePlayers = function (players) {
+    for (var i = 0; i < 5; i++) {
+        if (!players[i]) {
+            $('#player' + i).attr('hidden');
+        }
+    }
+};
+
+var loadCardImages = function (divId, cards) {
     var loaded = 0;
     var images = [];
-    if(cards && cards.length > 0) {
+    if (cards && cards.length > 0) {
         for (var i = 0; i < cards.length; i++) {
             images[i] = getCardImg(cards[i]);
             images[i].onload = function () {
-                if (++loaded === cards.length && callback) {
-                    callback(player, images);
+                if (++loaded === cards.length) {
+                    drawCards(divId, images);
                 }
             };
         }
@@ -95,8 +116,9 @@ var loadCardImages = function (player, cards, callback) {
 
 };
 
-var drawCards = function (player, images) {
-    var ctx = player.getContext('2d');
+var drawCards = function (divId, images) {
+    var canvas = document.getElementById(divId)
+    var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, 500, 150);
     for (var i = 0; i < images.length; i++) {
         ctx.drawImage(images[i], i * 20, 0, 100, 150);
@@ -104,16 +126,17 @@ var drawCards = function (player, images) {
 };
 
 var updateDealer = function (dealer) {
-    loadCardImages($('#dealerCards')[0], dealer.cards, drawCards);
+    $('#dealerCards').empty();
+    loadCardImages('dealerCards', dealer.cards);
     $('#dealerScore').text(dealer.score);
 };
 
 var updateResult = function (result) {
     var displayResult = result;
-    if (result === 'None') {
-        displayResult = '';
-    } else {
+    if (result != 'None') {
         $('#resultModal').modal();
+    } else {
+        displayResult = '';
     }
     $('#result').text(displayResult);
 };
@@ -127,15 +150,15 @@ var enableButton = function (id) {
 };
 
 var disableDeal = function () {
-    disableButton('#deal');
-    enableButton('#hit');
-    enableButton('#stand');
+    disableButton('#player'+myId+'deal');
+    enableButton('#player'+myId+'hit');
+    enableButton('#player'+myId+'stand');
 };
 
 var enableDeal = function () {
-    enableButton('#deal');
-    disableButton('#hit');
-    disableButton('#stand');
+    enableButton('#player'+myId+'deal');
+    disableButton('#player'+myId+'hit');
+    disableButton('#player'+myId+'stand');
 };
 
 var enableDealIfGameFinished = function (result) {
@@ -146,41 +169,33 @@ var enableDealIfGameFinished = function (result) {
 
 var dealResult = function (game) {
     disableDeal();
-    updateDealer(game.dealer);
     updatePlayers(game.players);
     updateResult(game.result);
 };
 
 var hitResult = function (game) {
-    updateDealer(game.dealer);
     updatePlayers(game.players);
     updateResult(game.result);
     enableDealIfGameFinished(game.result);
 };
 
 var standResult = function (game) {
-    updateDealer(game.dealer);
     updatePlayers(game.players);
     updateResult(game.result);
     enableDealIfGameFinished(game.result);
 };
 
-var playerRegistered = function (game) {
-    updateDealer(game.dealer);
-    updatePlayers(game.players);
-    updateResult(game.result);
-    enableDealIfGameFinished(game.result);
+var dropPlayer = function (players) {
+    removePlayers(players);
 };
 
-var dropPlayer = function (game) {
-    updateDealer(game.dealer);
-    updatePlayers(game.players);
-    updateResult(game.result);
+var newPlayer = function (players) {
+    updatePlayers(players);
 };
 
 var registerClientActions = function () {
 
-    $('#deal').click(function () {
+    $('#player'+myId+'deal').click(function () {
         deal();
     });
 
@@ -188,11 +203,11 @@ var registerClientActions = function () {
         deal();
     });
 
-    $('#hit').click(function () {
+    $('#player'+myId+'hit').click(function () {
         hit();
     });
 
-    $('#stand').click(function () {
+    $('#player'+myId+'stand').click(function () {
         stand();
     });
 };
@@ -201,7 +216,3 @@ var init = function () {
     registerClientActions();
     enableDeal();
 };
-
-$(document).ready(function () {
-    init();
-});

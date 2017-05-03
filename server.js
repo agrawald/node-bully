@@ -5,6 +5,7 @@ var io = require('socket.io')(http);
 var fs = require('fs');
 var url = require('url');
 var blackjack = require('./lib/blackjack');
+var player = require('./lib/player');
 
 app.get('/', function (req, res) {
     res.sendFile(__dirname + '/index.html')
@@ -16,19 +17,24 @@ app.use('/img', express.static(__dirname + '/img'));
 
 var playerSockets = [];
 var playerCount = -1;
+var game;
+var players = [];
 
 io.on('connection', function (socket) {
-    console.log('User connected');
-    ++playerCount;
-    playerSockets[playerCount] = socket;
-    socket.id = playerCount;
-    if (!socket.game) {
-        socket.game = blackjack.newGame();
+
+    if(socket.id) {
+        ++playerCount;
+        console.log('User ' + playerCount + ' connected');
+        playerSockets[playerCount] = socket;
+        socket.id = playerCount;
+
+        players[playerCount] = player.newPlayer(playerCount, "Player " + playerCount);
+        sendPlayerUpdates('newPlayer', players);
     }
 
-    socket.game.newPlayer(playerCount);
-
     socket.on('deal', function (data) {
+        game = blackjack.newGame(players);
+        game.start();
         deal(socket, data);
     });
 
@@ -40,51 +46,69 @@ io.on('connection', function (socket) {
         stand(socket, data);
     });
 
-    socket.on('disconnect', function (socket) {
-        console.log('User disconnected');
-        delete playerSockets[this.id];
-        var game = this.game;
-        game.removePlayer(this.id);
+    socket.on('disconnect', function () {
+        console.log('User ' + this.id + ' disconnected');
+        playerSockets.splice(this.id, 1);
+        if (game) {
+            game.removePlayer(this.id);
+        }
         playerCount--;
-        notifyPlayers('drop');
+        sendPlayerUpdates('drop', players);
     });
 
     socket.emit('id', {
         id: playerCount,
-        game: socket.game.toJson()
+        players: playersJson(players, playerCount)
     });
 });
 
 http.listen(3000);
 
-var notifyPlayers = function(event) {
-    if(playerSockets && playerSockets.length>0) {
-        for(var i=0; i<playerSockets.length; i++) {
-            playerSockets[i].emit(event, game.toJson());
+var playersJson = function (players, currentPlayerId) {
+    var json = [];
+    for (var i = 0; i < players.length; i++) {
+        json.push(players[i].toJson(currentPlayerId))
+    }
+    return json;
+};
+
+var sendGameUpdate = function (event, game) {
+    if (playerSockets && playerSockets.length > 0) {
+        for (var i = 0; i < playerSockets.length; i++) {
+            if (playerSockets[i]) {
+                playerSockets[i].emit(event, game.toJson(i));
+            }
+        }
+    }
+};
+
+var sendPlayerUpdates = function (event, players) {
+    if (playerSockets && playerSockets.length > 0) {
+        for (var i = 0; i < playerSockets.length; i++) {
+            if (playerSockets[i]) {
+                playerSockets[i].emit(event, { players: playersJson(players, i)});
+            }
         }
     }
 };
 
 var deal = function (socket, data) {
     console.log('deal');
-    var game = socket.game;
     if (!game.isInProgress()) {
         game.start();
     }
-    socket.emit('deal', game.toJson());
+    sendGameUpdate("deal", game)
 };
 
 var hit = function (socket, data) {
     console.log('hit');
-    var game = socket.game;
-    game.hit();
-    socket.emit('hit', game.toJson());
+    game.hit(socket.id);
+    sendGameUpdate("hit", game)
 };
 
 var stand = function (socket, data) {
     console.log('stand');
-    var game = socket.game;
-    game.stand();
-    socket.emit('stand', game.toJson());
+    game.stand(socket.id);
+    sendGameUpdate("stand", game);
 };
 
