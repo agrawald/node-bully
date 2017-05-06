@@ -18,11 +18,11 @@ socket.on('id', function (data) {
 });
 
 socket.on('drop', function (players) {
-    dropPlayer(players);
+    removePlayers(players);
 });
 
-socket.on('newPlayer', function (players) {
-    newPlayer(players);
+socket.on('newPlayer', function (data) {
+    updatePlayers(data.players);
 });
 
 var deal = function () {
@@ -185,13 +185,6 @@ var standResult = function (game) {
     enableDealIfGameFinished(game.result);
 };
 
-var dropPlayer = function (players) {
-    removePlayers(players);
-};
-
-var newPlayer = function (players) {
-    updatePlayers(players);
-};
 
 var registerClientActions = function () {
 

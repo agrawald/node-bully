@@ -21,17 +21,6 @@ var game;
 var players = [];
 
 io.on('connection', function (socket) {
-
-    if(socket.id) {
-        ++playerCount;
-        console.log('User ' + playerCount + ' connected');
-        playerSockets[playerCount] = socket;
-        socket.id = playerCount;
-
-        players[playerCount] = player.newPlayer(playerCount, "Player " + playerCount);
-        sendPlayerUpdates('newPlayer', players);
-    }
-
     socket.on('deal', function (data) {
         game = blackjack.newGame(players);
         game.start();
@@ -47,22 +36,45 @@ io.on('connection', function (socket) {
     });
 
     socket.on('disconnect', function () {
-        console.log('User ' + this.id + ' disconnected');
-        playerSockets.splice(this.id, 1);
-        if (game) {
-            game.removePlayer(this.id);
-        }
-        playerCount--;
-        sendPlayerUpdates('drop', players);
+        removePlayer(this.id);
     });
 
+    addPlayer(socket);
+});
+
+http.listen(3000);
+
+var addPlayer = function (socket) {
+    var mayBeNewPlayer = players[socket.id];
+    if(mayBeNewPlayer) {
+        console.log(`${mayBeNewPlayer.name} -> RECONNECTED`)
+    } else {
+        ++playerCount;
+        socket.id = playerCount;
+
+        mayBeNewPlayer = player.newPlayer(playerCount, "Player " + playerCount);
+        console.log(`${mayBeNewPlayer.name} -> CONNECTED`);
+    }
+
+    playerSockets[playerCount] = socket;
+    players[playerCount] = mayBeNewPlayer;
     socket.emit('id', {
         id: playerCount,
         players: playersJson(players, playerCount)
     });
-});
+    sendPlayerUpdates('newPlayer', players);
+};
 
-http.listen(3000);
+var removePlayer = function(playerId) {
+    console.log('User ' + playerId + ' disconnected');
+    playerSockets.splice(playerId, 1);
+    players.splice(playerId, 1);
+    if (game) {
+        game.removePlayer(playerId);
+    }
+    playerCount--;
+    sendPlayerUpdates('drop', players);
+};
 
 var playersJson = function (players, currentPlayerId) {
     var json = [];
