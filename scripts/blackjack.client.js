@@ -1,19 +1,110 @@
-var socket = io();
-var myId = -1;
+"use strict";
+
+const socket = io();
+let myId = -1;
+
+const standResult = function (game) {
+    updatePlayers(game.players);
+    updateResult(game.result);
+    enableDealIfGameFinished(game.result);
+};
 
 socket.on('stand', function (game) {
     standResult(game);
 });
+
+const dealResult = function (game) {
+    disableButton(`#player${myId}start`);
+    updatePlayers(game.players);
+    updateResult(game.result);
+};
+
 socket.on('deal', function (game) {
     dealResult(game);
 });
+
+const hitResult = function (game) {
+    updatePlayers(game.players);
+    updateResult(game.result);
+    enableDealIfGameFinished(game.result);
+};
 socket.on('hit', function (game) {
     hitResult(game);
 });
 
+const removePlayers = function (players) {
+    for (let i = 0; i < 5; i++) {
+        if (!players[i]) {
+            $(`#player${i}`).remove();
+        }
+    }
+};
+const drawCards = function (divId, images) {
+    const canvas = document.getElementById(divId);
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 500, 150);
+    for (let i = 0; i < images.length; i++) {
+        ctx.drawImage(images[i], i * 20, 0, 100, 150);
+    }
+};
+const loadCardImages = function (divId, cards) {
+    let loaded = 0;
+    const images = [];
+    if (cards && cards.length > 0) {
+        for (let i = 0; i < cards.length; i++) {
+            images[i] = getCardImg(cards[i]);
+            images[i].onload = function () {
+                if (++loaded === cards.length) {
+                    drawCards(divId, images);
+                }
+            };
+        }
+    }
+
+};
+const updatePlayers = function (players) {
+    if (players) {
+        removePlayers(players);
+        for (let i = 0; i < players.length; i++) {
+            const player = players[i];
+            const playerScoreDiv = $(`#player${i}Score`);
+            const playerStartButton = $(`#player${i}start`);
+            playerScoreDiv.empty();
+            if (player.isDealer) {
+                playerScoreDiv.append(player.name + " (DEALER) <span class='badge'>" + player.score + "</span>");
+                playerStartButton.removeAttr('hidden');
+            } else {
+                playerScoreDiv.append(player.name + " <span class='badge'>" + player.score + "</span>");
+            }
+            $(`#player${i}Cards`).empty();
+            loadCardImages(`player${i}Cards`, player.cards);
+            if (myId === i) {
+                $(`#player${i}Buttons`).removeAttr('hidden');
+            }
+            $(`#player${i}`).removeAttr('hidden');
+        }
+    }
+};
+const registerClientActions = function () {
+    $(`#player${myId}start`).click(function () {
+        start();
+    });
+
+    $('#restart').click(function () {
+        start();
+    });
+
+    $(`#player${myId}hit`).click(function () {
+        hit();
+    });
+
+    $(`#player${myId}stand`).click(function () {
+        stand();
+    });
+};
 socket.on('id', function (data) {
     myId = data.id;
-    init();
+    registerClientActions();
     updatePlayers(data.players);
 });
 
@@ -25,19 +116,35 @@ socket.on('newPlayer', function (data) {
     updatePlayers(data.players);
 });
 
-var deal = function () {
-    socket.emit('deal');
+const enableButton = function (id) {
+    $(id).removeAttr('disabled');
+};
+socket.on('turn', function (data) {
+    enableButton(`#player${myId}hit`);
+    enableButton(`#player${myId}stand`);
+});
+
+const disableButton = function (id) {
+    $(id).attr('disabled', 'disabled');
+};
+const start = function () {
+    disableButton(`#player${myId}start`);
+    socket.emit('start');
 };
 
-var hit = function () {
+const hit = function () {
+    disableButton(`#player${myId}hit`);
+    disableButton(`#player${myId}stand`);
     socket.emit('hit');
 };
 
-var stand = function () {
+const stand = function () {
+    disableButton(`#player${myId}hit`);
+    disableButton(`#player${myId}stand`);
     socket.emit('stand');
 };
 
-var getSuit = function (suit) {
+const getSuit = function (suit) {
     if (suit === 'H') {
         return 'hearts'
     } else if (suit === 'S') {
@@ -51,7 +158,7 @@ var getSuit = function (suit) {
     return suit;
 };
 
-var getRank = function (rank) {
+const getRank = function (rank) {
     if (rank === 1) {
         return 'ace';
     } else if (rank === 11) {
@@ -64,148 +171,40 @@ var getRank = function (rank) {
     return rank;
 };
 
-var getCardImg = function (card) {
-    var image = new Image();
+const getCardImg = function (card) {
+    const image = new Image();
     image.src = '../img/' + getRank(card.rank) + "_of_" + getSuit(card.suit) + '.svg?d=' + Date.now();
     return image;
 };
 
-var updatePlayers = function (players) {
-    if (players) {
-        removePlayers(players);
-        for (var i = 0; i < players.length; i++) {
-            var player = players[i];
-            $('#player' + i + 'Score').empty();
-            if (player.isDealer) {
-                $('#player' + i + 'Score').append(player.name + " (DEALER) <span class='badge'>" + player.score + "</span>");
-                $('#player' + i + 'deal').removeAttr('hidden');
-            } else {
-                $('#player' + i + 'Score').append(player.name + " <span class='badge'>" + player.score + "</span>");
-            }
-            $('#player' + i + 'Cards').empty();
-            loadCardImages('player' + i + 'Cards', player.cards);
-            if (myId === i) {
-                $('#player' + i + 'Buttons').removeAttr('hidden');
-            }
-            $('#player' + i).removeAttr('hidden');
+
+const updateResult = function (result) {
+    if(result) {
+        let won = result.won;
+        let player = result.player;
+
+        let playerDiv = $(`#player${player.id}`);
+        switch(won) {
+            case true:
+                $('#result').text(player.name + " WIN's");
+            case false:
+                $('#result').text(player.name + " BUSTED");
+                //disable the player div
+                playerDiv.remove();
+                //show notification
+                $('.alert').show();
+                window.setTimeout(function() {
+                    $(".alert").fadeTo(500, 0).slideUp(500, function(){
+                        $(this).remove();
+                    });
+                }, 4000);
+                break;
         }
     }
 };
 
-var removePlayers = function (players) {
-    for (var i = 0; i < 5; i++) {
-        if (!players[i]) {
-            $('#player' + i).attr('hidden');
-        }
+const enableDealIfGameFinished = function (result) {
+    if (!result) {
+        enableButton(`#player${myId}start`);
     }
-};
-
-var loadCardImages = function (divId, cards) {
-    var loaded = 0;
-    var images = [];
-    if (cards && cards.length > 0) {
-        for (var i = 0; i < cards.length; i++) {
-            images[i] = getCardImg(cards[i]);
-            images[i].onload = function () {
-                if (++loaded === cards.length) {
-                    drawCards(divId, images);
-                }
-            };
-        }
-    }
-
-};
-
-var drawCards = function (divId, images) {
-    var canvas = document.getElementById(divId)
-    var ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, 500, 150);
-    for (var i = 0; i < images.length; i++) {
-        ctx.drawImage(images[i], i * 20, 0, 100, 150);
-    }
-};
-
-var updateDealer = function (dealer) {
-    $('#dealerCards').empty();
-    loadCardImages('dealerCards', dealer.cards);
-    $('#dealerScore').text(dealer.score);
-};
-
-var updateResult = function (result) {
-    var displayResult = result;
-    if (result != 'None') {
-        $('#resultModal').modal();
-    } else {
-        displayResult = '';
-    }
-    $('#result').text(displayResult);
-};
-
-var disableButton = function (id) {
-    $(id).attr('disabled', 'disabled');
-};
-
-var enableButton = function (id) {
-    $(id).removeAttr('disabled');
-};
-
-var disableDeal = function () {
-    disableButton('#player'+myId+'deal');
-    enableButton('#player'+myId+'hit');
-    enableButton('#player'+myId+'stand');
-};
-
-var enableDeal = function () {
-    enableButton('#player'+myId+'deal');
-    disableButton('#player'+myId+'hit');
-    disableButton('#player'+myId+'stand');
-};
-
-var enableDealIfGameFinished = function (result) {
-    if (result !== 'None') {
-        enableDeal();
-    }
-};
-
-var dealResult = function (game) {
-    disableDeal();
-    updatePlayers(game.players);
-    updateResult(game.result);
-};
-
-var hitResult = function (game) {
-    updatePlayers(game.players);
-    updateResult(game.result);
-    enableDealIfGameFinished(game.result);
-};
-
-var standResult = function (game) {
-    updatePlayers(game.players);
-    updateResult(game.result);
-    enableDealIfGameFinished(game.result);
-};
-
-
-var registerClientActions = function () {
-
-    $('#player'+myId+'deal').click(function () {
-        deal();
-    });
-
-    $('#restart').click(function () {
-        deal();
-    });
-
-    $('#player'+myId+'hit').click(function () {
-        hit();
-    });
-
-    $('#player'+myId+'stand').click(function () {
-        stand();
-    });
-};
-
-var init = function () {
-    registerClientActions();
-    enableDeal();
 };
